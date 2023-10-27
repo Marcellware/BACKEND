@@ -117,11 +117,68 @@ const getNotificaciones = (request, response) => {
     });
 };
 
-module.exports = {
+// Consulta de la tabla solicitud
+const getSolicitudes = (request, response) => {
+    pool.query(`
+      SELECT
+        sol.sol_id,
+        sol.sol_tipo,
+        sol.sol_descripcion,
+        sol.sol_fecharealizacion AS fecha,
+        sol.sol_estado AS estado,
+        CONCAT(u.usu_nombre, ' ', u.usu_apellido) AS solicitante
+      FROM
+        solicitud sol
+      INNER JOIN
+        usuario u ON sol.sol_solicitante = u.usu_id
+      INNER JOIN
+        asignacionBien asi ON u.usu_id = asi.asi_custodio
+      INNER JOIN
+        ubicacion ubi ON asi.asi_ubicacion = ubi.ubi_id;
+    `, (error, results) => {
+      if (error) {
+        throw error;
+      }
+      response.status(200).json(results.rows);
+    });
+  };
+  
+  // Inserción de solicitudes
+  const insertSolicitud = (request, response) => {
+    const { sol_tipo, sol_descripcion, sol_solicitante } = request.body; // Obtener los datos de la solicitud
+  
+    pool.query('INSERT INTO solicitud (sol_tipo, sol_descripcion, sol_solicitante) VALUES ($1, $2, $3) RETURNING sol_id', [sol_tipo, sol_descripcion, sol_solicitante], (error, result) => {
+      if (error) {
+        throw error;
+      }
+      response.status(201).json({ sol_id: result.rows[0].sol_id });
+    });
+  };
+  
+  const getBieNombrePorCodigo = (request, response) => {
+    const { codigo } = request.params;
+  
+    pool.query('SELECT bie_nombre FROM bien WHERE bie_codigo = $1', [codigo], (error, results) => {
+      if (error) {
+        throw error;
+      }
+      response.status(200).json(results.rows);
+    });
+  };
+  
+
+
+
+  // Exportar las funciones
+  module.exports = {
     getUsers,
     verifyUserLoginCreds,
     buscarPorCodigo,
     getBienesConUsuariosYUbicacion,
     getTotalRegistros,
     getNotificaciones,
-};
+    getSolicitudes, // Agregar la función de consulta de solicitudes
+    insertSolicitud,
+    getBieNombrePorCodigo, // Agregar la función de inserción de solicitudes
+  };
+  
