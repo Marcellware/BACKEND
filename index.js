@@ -1,4 +1,9 @@
 // index.js
+const express = require('express');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+const app = express();
+const port = process.env.PORT || 3000; // Usar el puerto proporcionado por Heroku o 3000 si se ejecuta localmente
 const db = require('./queries');
 
 app.use(cors());
@@ -28,15 +33,13 @@ app.get('/bienesConUsuariosYUbicacion', db.getBienesConUsuariosYUbicacion);
 
 app.get('/totalRegistros', db.getTotalRegistros);
 
-
-
 app.get('/notificaciones', db.getNotificaciones);
 
+app.get('/getSolicitudes', db.getSolicitudes);
 
+app.post('/insertSolicitud', db.insertSolicitud);
 
-
-
-app.listen(port, '0.0.0.0', () => {
+app.listen(port,() => {
   console.log('Servidor en funcionamiento en el puerto:', port);
 });
 
