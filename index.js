@@ -33,6 +33,8 @@ app.get('/bienesConUsuariosYUbicacion', db.getBienesConUsuariosYUbicacion);
 
 app.get('/totalRegistros', db.getTotalRegistros);
 
+app.get('/getBieNombrePorCodigo', db.getBieNombrePorCodigo);
+
 app.get('/notificaciones', db.getNotificaciones);
 
 app.get('/getSolicitudes', db.getSolicitudes);
