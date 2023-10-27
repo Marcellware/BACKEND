@@ -3,7 +3,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const app = express();
-const port = process.env.PORT || 3000; // Usar el puerto proporcionado por Heroku o 3000 si se ejecuta localmente
+const port = process.env.PORT || 3000;
 const db = require('./queries');
 
 app.use(cors());
@@ -17,6 +17,7 @@ app.use(
 app.get('/', (request, response) => {
   console.log('Servidor en funcionamiento en el puerto:', port);
 });
+
 
 
 app.get('/buscarPorCodigo/:codigo', db.buscarPorCodigo);
@@ -41,7 +42,6 @@ app.get('/getSolicitudes', db.getSolicitudes);
 
 app.post('/insertSolicitud', db.insertSolicitud);
 
-app.listen(port,() => {
+app.listen(port, '0.0.0.0', () => {
   console.log('Servidor en funcionamiento en el puerto:', port);
 });
-
