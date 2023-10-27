@@ -18,7 +18,9 @@ const pool = new Pool({
     port: '5432',
     user: 'lozkouwwzynyji',
     password: '7f0d685bc56dabbbe20e3c603f8d848ff5ba805b8faec91660439dffbf6cbbc8',
-    
+    ssl: {
+        rejectUnauthorized: false, // Esto evita errores por falta de CA en entornos de desarrollo
+    },
 });
 
 
