@@ -1,9 +1,4 @@
 // index.js
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const app = express();
-const port = 32767;
 const db = require('./queries');
 
 app.use(cors());
@@ -32,6 +27,7 @@ app.get('/bienesConUsuariosYUbicacion', db.getBienesConUsuariosYUbicacion);
 
 
 app.get('/totalRegistros', db.getTotalRegistros);
+
 
 
 app.get('/notificaciones', db.getNotificaciones);
