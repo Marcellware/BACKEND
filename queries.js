@@ -1,16 +1,7 @@
 //queries.js
 
 const Pool = require('pg').Pool;
-/*
-
-const pool = new Pool({
-    host: 'localhost',
-    database: 'usuariosUTM',
-    port: '5432',
-    user: 'postgres',
-    password: '123456',
-});
-*/
+const queries = require('./queries');
 
 const pool = new Pool({
     host: 'ec2-52-54-200-216.compute-1.amazonaws.com',
@@ -22,6 +13,15 @@ const pool = new Pool({
         rejectUnauthorized: false, // Esto evita errores por falta de CA en entornos de desarrollo
     },
 });
+
+const executeQuery = async (query, values) => {
+  try {
+      const result = await pool.query(query, values);
+      return result.rows;
+  } catch (error) {
+      throw error;
+  }
+};
 
 
 const verifyUserLoginCreds = (request, response) => {
@@ -117,6 +117,7 @@ const getNotificaciones = (request, response) => {
     });
 };
 
+
 // Consulta de la tabla solicitud
 const getSolicitudes = (request, response) => {
     pool.query(`
@@ -145,15 +146,21 @@ const getSolicitudes = (request, response) => {
   
   // Inserción de solicitudes
   const insertSolicitud = (request, response) => {
-    const { sol_tipo, sol_descripcion, sol_solicitante } = request.body; // Obtener los datos de la solicitud
-  
+    const { sol_tipo, sol_descripcion, sol_solicitante } = request.body;
+
+    // Verifica si sol_tipo y sol_solicitante son números enteros válidos
+    if (!Number.isInteger(sol_tipo) || !Number.isInteger(sol_solicitante)) {
+        response.status(400).json({ error: 'sol_tipo y sol_solicitante deben ser números enteros válidos' });
+        return;
+    }
+
     pool.query('INSERT INTO solicitud (sol_tipo, sol_descripcion, sol_solicitante) VALUES ($1, $2, $3) RETURNING sol_id', [sol_tipo, sol_descripcion, sol_solicitante], (error, result) => {
-      if (error) {
-        throw error;
-      }
-      response.status(201).json({ sol_id: result.rows[0].sol_id });
+        if (error) {
+            throw error;
+        }
+        response.status(201).json({ sol_id: result.rows[0].sol_id });
     });
-  };
+};
   
   const getBieNombrePorCodigo = (request, response) => {
     const { codigo } = request.params;
@@ -167,18 +174,173 @@ const getSolicitudes = (request, response) => {
   };
   
 
+  const getBienByCodigo = (request, response) => {
+    const { codigo } = request.params;
+  
+    pool.query(
+      `
+      SELECT bie_codigo, bie_nombre, ubi_nombre, CONCAT(u.usu_nombre, ' ', u.usu_apellido) AS custodio, bie_estado
+      FROM Bien b  
+      INNER JOIN asignacionbien asi ON b.bie_id = asi.asi_bien
+      INNER JOIN ubicacion ubi ON asi.asi_ubicacion = ubi.ubi_id
+      INNER JOIN usuario u ON asi.asi_custodio = u.usu_id
+      WHERE bie_codigo = $1;
+      `,
+      [codigo],
+      (error, results) => {
+        if (error) {
+          throw error;
+        }
+        response.status(200).json(results.rows);
+      }
+    );
+  };
+  
+  // Consulta para obtener ubicaciones
+  const getUbicaciones = (request, response) => {
+    pool.query('SELECT ubi_nombre FROM ubicacion', (error, results) => {
+      if (error) {
+        throw error;
+      }
+      response.status(200).json(results.rows);
+    });
+  };
+  
+  const getCustodios = (request, response) => {
+    pool.query(`SELECT CONCAT(usu_nombre, ' ', usu_apellido) AS usuario FROM usuario`, (error, results) => {
+      if (error) {
+        throw error;
+      }
+      response.status(200).json(results.rows);
+    });
+  };
 
 
-  // Exportar las funciones
+
+  const codigoAsignacion = (request, response) => {
+    const { nombre } = request.params;
+  
+    const query = `
+      SELECT asi_ubicacion
+      FROM Bien b  
+      INNER JOIN asignacionbien asi ON b.bie_id = asi.asi_bien
+      INNER JOIN ubicacion ubi ON asi.asi_ubicacion = ubi.ubi_id
+      WHERE ubi_nombre = $1;
+    `;
+  
+    pool.query(query, [nombre], (error, results) => {
+      if (error) {
+        throw error;
+      }
+      response.status(200).json(results.rows);
+    });
+  };
+
+
+  const obtenerIdCustodioPorNombre = (request, response) => {
+    const { nombre } = request.params;
+  
+    const query = `
+      SELECT usu_id
+      FROM usuario
+      WHERE CONCAT(usu_nombre, ' ', usu_apellido) = $1
+      GROUP BY 1
+      LIMIT 1;
+    `;
+  
+    pool.query(query, [nombre], (error, results) => {
+      if (error) {
+        throw error;
+      }
+      response.status(200).json(results.rows);
+    });
+  };
+
+
+  const actualizarEstadoBien = (request, response) => {
+    const { codigo, nuevoEstado } = request.params;
+
+    pool.query('UPDATE public.bien SET bie_estado = $1 WHERE bie_codigo = $2', [nuevoEstado, codigo], (error, results) => {
+        if (error) {
+            throw error;
+        }
+        response.status(200).json(results.rows);
+    });
+  };
+
+
+  const actualizarUbicacionEnAsignacionBien = (request, response) => {
+    const { codigo, nuevaUbicacionId } = request.params;
+  
+    pool.query(
+      `
+      UPDATE public.asignacionBien AS ab
+      SET asi_ubicacion = $1
+      FROM public.bien AS b
+      WHERE b.bie_codigo = $2
+      AND ab.asi_bien = b.bie_id;
+      `,
+      [nuevaUbicacionId, codigo],
+      (error, results) => {
+        if (error) {
+          throw error;
+        }
+        response.status(200).json(results.rows);
+      }
+    );
+  };
+
+  const actualizarCustodioEnAsignacionBien = (request, response) => {
+    const { codigo, nuevoCustodioId } = request.params;
+  
+    pool.query(
+      `
+      UPDATE public.asignacionBien AS ab
+      SET asi_custodio = $1
+      FROM public.bien AS b
+      WHERE b.bie_codigo = $2
+      AND ab.asi_bien = b.bie_id;
+      `,
+      [nuevoCustodioId, codigo],
+      (error, results) => {
+        if (error) {
+          throw error;
+        }
+        response.status(200).json(results.rows);
+      }
+    );
+  };
+
+
+
+
+
+
+
+  
   module.exports = {
+    pool: pool,
     getUsers,
+    executeQuery,
     verifyUserLoginCreds,
     buscarPorCodigo,
     getBienesConUsuariosYUbicacion,
     getTotalRegistros,
     getNotificaciones,
-    getSolicitudes, // Agregar la función de consulta de solicitudes
+    getSolicitudes,
     insertSolicitud,
-    getBieNombrePorCodigo, // Agregar la función de inserción de solicitudes
+    getBieNombrePorCodigo,
+    getBienByCodigo,
+    getUbicaciones,
+    getCustodios,
+    codigoAsignacion,
+    obtenerIdCustodioPorNombre,
+    actualizarEstadoBien,
+    actualizarUbicacionEnAsignacionBien,
+    actualizarCustodioEnAsignacionBien,
+    
+    
   };
   
+  // Para evidenciar las consultas
+  // curl -X GET http://localhost:32767/actualizarUbicacionEnAsignacionBien/1034602/3
